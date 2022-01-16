@@ -107,7 +107,10 @@
 #define BUTTON_COUNT 7
 
 #include <xc.h>
-#include "memory.h"
+#include "ui.h"
+#include "timemgr.h"
+#include "buttons.h"
+#include "program.h"
 
 //#define CLK_AT_4MHz 1
 
@@ -121,137 +124,16 @@
 #define TMR1OFF_L 0x57
 #endif
 
-
-volatile int g_CurrentLED = 0;
-volatile char g_LEDsDisplaying[4] = {};
-volatile Time g_CurrentTimerTime = {0, 0};
-volatile unsigned char g_isRunning = 0;
-volatile char g_MessageBuffer[128] = {};
-volatile char * g_MessagePointer = g_MessageBuffer;
-volatile char * g_MessageEndPointer = g_MessageBuffer;
 volatile int g_Timer1Counter = 0;
-volatile int g_DisplayCounter = 0;
-unsigned short g_ButtonCache = 0;
-unsigned short g_ButtonDuration = 0;
-unsigned char g_ProgramNumber = 0; 
-
-void StartProgram();
-void StopProgram();
-void LoadProgram(unsigned int programNumber);
-void guiUpdate();
-void clockUpdate();
-
-//  LED:  pgfedcba
-
-static const unsigned char s_LEDCodes[] = {
-//  Control characters
-    0b00000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000,
-    0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000,
-    0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000,
-    0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000,
-    0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000,
-//                          Space       !           "           #
-    0b10000000, 0b10000000, 0b00000000, 0b10000110, 0b10000000, 0b10000000,
-//  $           %           &           '           (           )
-    0b10000000, 0b10000000, 0b10000000, 0b00000010, 0b00110000, 0b00000110,
-//  *           +           ,           -           .           /
-    0b10000000, 0b10000000, 0b10000000, 0b01000000, 0b10000000, 0b00010010,
-//  0           1           2           3           4           5
-    0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110, 0b01101101,
-//  6           7           8           9           :           ;
-    0b01111101, 0b00000111, 0b01111111, 0b01100111, 0b01000001, 0b00001101,
-//  <           =           >           ?           @           A
-    0b10000000, 0b01000001, 0b10000000, 0b11010011, 0b10000000, 0b01110111,
-//  B           C           D           E           F           G
-    0b01111100, 0b00111001, 0b01011110, 0b01111001, 0b01110001, 0b00111101,
-//  H           I           J           K           L           M
-    0b01110110, 0b00110000, 0b00011110, 0b01110110, 0b00111000, 0b10000000,
-//  N           O           P           Q           R           S
-    0b01010100, 0b00111111, 0b01110011, 0b01100111, 0b01010000, 0b01101101,
-//  T           U           V           W           X           Y
-    0b01110000, 0b00011100, 0b01110010, 0b10000000, 0b10000000, 0b01101110,
-//  Z           [           \           ]           ^           _
-    0b10000000, 0b10111001, 0b10000000, 0b10001111, 0b10000000, 0b00001000,
-//  `           a           b           c           d           e
-    0b10000000, 0b01110111, 0b01111100, 0b01011000, 0b01011110, 0b01111001,
-//  f           g           h           i           j           k
-    0b01110001, 0b00111101, 0b01110100, 0b00110000, 0b00011110, 0b01110110,
-//  l           m           n           o           p           q
-    0b00111000, 0b10000000, 0b01010100, 0b01011100, 0b01110011, 0b01100111,
-//  r           s           t           u           v           w
-    0b01010000, 0b01101101, 0b01110000, 0b00011100, 0b01110010, 0b10000000,
-//  x           y           z           {           |           }
-    0b10000000, 0b01101110, 0b10000000, 0b10000000, 0b00110000, 0b01111100,
-//  ~         
-    0b01010010
-};
-
-
-unsigned char getLEDCode(char ch)
-{
-    unsigned char retValue = 0;
-    
-    if (ch < sizeof(s_LEDCodes))
-    {
-        retValue = s_LEDCodes[ch];
-    }
-    else
-    {
-        retValue = 0b10000000;
-    }
-    
-    return retValue;
-}
-
-unsigned int strlen(char * str)
-{
-    int retVal = 0;
-    char * cur = str;
-    if (cur != NULL)
-    {
-        while (*cur != '\0')
-        {
-            retVal++;
-            cur++;
-        }
-    }
-    return retVal;
-}
-
-void memcpy(volatile char * dst, char * src, unsigned int count)
-{
-    while (count > 0)
-    {
-        *dst = *src;
-        dst++;
-        src++;
-        count--;
-    }
-}
-
-void PrintMessage(char * msg)
-{
-    // Likely we'll have printed out our messages already.
-    if (g_MessagePointer == g_MessageEndPointer)
-    {
-        g_MessageEndPointer = g_MessagePointer = g_MessageBuffer;
-    }
-    
-    unsigned int len = strlen(msg);
-    int remainingSpace = (g_MessageBuffer + sizeof(g_MessageBuffer) - g_MessageEndPointer);
-    if (len <= remainingSpace)
-    {
-        memcpy(g_MessageEndPointer, msg, len + 1);
-    }
-    g_MessageEndPointer += len + 2;
-}
+volatile unsigned char g_ClockTicks = 0;
+volatile unsigned char g_UpdateGUIFlag = 0;
 
 void __interrupt() irqHandler()
 {
     if (TMR0IF)
     {
         TMR0IF = 0;
-        guiUpdate();
+        g_UpdateGUIFlag = 1;
     }
     
     if (TMR1IF)
@@ -265,50 +147,15 @@ void __interrupt() irqHandler()
         if (++g_Timer1Counter >= 5)
 #endif
         {
-            clockUpdate();
-            g_Timer1Counter = 0;
+            g_ClockTicks++;
         }
-    }
-}
-
-void guiUpdate()
-{
-    // See which LED we are going to be controlling
-    int nextLED = (g_CurrentLED + 1) % 4;
-    // Read the current screen buffer
-    char ch = g_LEDsDisplaying[nextLED];
-    // Get the code for the character
-    unsigned char code = getLEDCode(ch);
-    // Select the LED (High is active)
-    PORTC = (PORTC & 0x0F) | (0x1 << (nextLED + 4));
-    // Set the segments
-    PORTD = code;
-    // Set current to the next one
-    g_CurrentLED = nextLED;
-}
-
-void clockUpdate()
-{
-    //if (g_isRunning)
-    {
-        g_CurrentTimerTime.Seconds++;
-        if (g_CurrentTimerTime.Seconds == 60)
-        {
-            g_CurrentTimerTime.Minutes++;
-            if (g_CurrentTimerTime.Minutes == 100)
-            {
-                g_CurrentTimerTime.Minutes = 0;
-            }
-            g_CurrentTimerTime.Seconds = 0;
-        }
-        
-        //decrementClock(g_CurrentTimerTime);
     }
 }
 
 void SleepEx(unsigned int ms)
 {
-    // We are at 8 MHz so we need 8000 nops per ms (so one increment, one compare and one nop)
+    // We are at 8 MHz so we need 8000 nops per ms (so one increment, one 
+    // compare and one nop)
     for (unsigned int currentMs = 0; currentMs < ms; ++currentMs)
     {
         for (unsigned short tick = 0; tick < 3000; ++tick)
@@ -318,58 +165,17 @@ void SleepEx(unsigned int ms)
     }
 }
 
-unsigned short ReadButtons()
-{
-    // Bit layout of Return Value
-    // [Min Up][Min Down][Sec Up][Sec Down][Reset][Start/Pause][Bypass][0:4 Selector Value]
-    unsigned short button_value = 0;
-    button_value |= ((PORTB >> 2) & 0xF);
-    button_value |= (PORTE & 0x7) << 4;
-    button_value |= ((PORTA >> 4) & 0x3) << 7;
-    button_value |= ((PORTC >> 2) & 0x3) << 9;
-    return button_value;
-}
-
-unsigned short DebounceButtons(unsigned short buttons)
-{
-    // Bit layout of Return Value
-    // [Min Up][Min Down][Sec Up][Sec Down][Reset][Start/Pause][Bypass][0:4 Selector Value]
-    if (g_ButtonCache == buttons)
-    {
-        g_ButtonDuration++;
-    }
-    else
-    {
-        g_ButtonCache = buttons;
-        g_ButtonDuration = 0;
-    }
-    
-    if (g_ButtonDuration >= 1000)
-    {
-        return buttons;
-    }
-    return 0;
-}
-
 // [Min Up][Min Down][Sec Up][Sec Down][Reset][Start/Pause][Bypass][0:4 Selector Value]
-#define IsMinUpPressed(btn)     (((btn >> 10) & 1) == 1)
-#define IsMinDownPressed(btn)   (((btn >> 9) & 1) == 1)
-#define IsSecUpPressed(btn)     (((btn >> 8) & 1) == 1)
-#define IsSecDownPressed(btn)   (((btn >> 7) & 1) == 1)
-#define IsResetPressed(btn)     (((btn >> 6) & 1) == 1)
-#define IsStartPressed(btn)     (((btn >> 5) & 1) == 1)
-#define IsBypassPressed(btn)    (((btn >> 4) & 1) == 1)
-#define GetSelectorValue(btn)   ((unsigned char)(btn & 0xF))
 
 void main(void) {
     // C7-4 are the LED selection pins, C3-2 input (min down, min up) C1-0 is TMR1 Clock
-    TRISC = 0b00001100;
-    // D7-0 Are the LED segments 7 (dp), 6 (g), 5 (f), 4 (e), 3 (d), 2 (c), 1 (b), 0 (a)
-    TRISD = 0x0;
+    TRISC =  0b00001100;
+    // D7-0 are the LED segments 7 (dp), 6 (g), 5 (f), 4 (e), 3 (d), 2 (c), 1 (b), 0 (a)
+    TRISD =  0x0;
     // B6-7 are left for programming and debugging, B2-5 are the hex selector input
     TRISB |= 0b11111100;
     // A5 (Sec Down) A4 (Sec up) A3 (N/C) A2 (Edit LED) A1 (SS Relay) A0 (Timer Active LED)
-    TRISA |= 0b00110000;
+    TRISA =  0b00111000;
     // Disable A/D converters
     ADCON1 = 0b00001111;
     // Disable comparators
@@ -425,217 +231,105 @@ void main(void) {
     INTCONbits.GIEL = 1;
     TMR0IE = 1;
     TMR1IE = 1;
+    UiState * display = NULL;
+    TimerManagerState * timer = NULL;
+    ButtonManagerState * buttons = NULL;
+    ProgramManagerState * program = NULL;
     
-    PrintMessage("Start Up");
+    do {
+        display = CreateUiComponent();
+        if (display == NULL) {
+            // The timer couldn't create the display control. Give static 4 LED
+            // error
+            PORTC = 0b11110000;
+            PORTD = 0b11000110;
+            break;
+        }
+
+        PrintMessage(display, "Start Up");
+
+        timer = CreateTimerManager();
+        if (timer == NULL) {
+            // The timer couldn't be created which means that we cannot function
+            PrintMessage(display, "Error 01 - Restart Device");
+            break;
+        }
+
+        ButtonManagerState * buttons = CreateButtonManager();
+        if (buttons == NULL) {
+            // The button manager couldn't be created which means the timer won't
+            // function
+            PrintMessage(display, "Error 02 - Restart Device");
+            break;
+        }
+        
+        program = CreateProgramManager();
+        if (program == NULL) {
+            PrintMessage(display, "Error 03 - Restart Device");
+            break;
+        }
+
+        // Main program
+        while (1) {
+            while (g_ClockTicks > 0) {
+                g_ClockTicks--;
+                if (TimerManager_TickSecond(timer) == 
+                        TimerStatus_TimerCompleted) {
+                    // Timer has completed
+                }
+            }
+
+            if (g_UpdateGUIFlag != 0) {
+                g_UpdateGUIFlag = 0;
+                UiUpdate(display, timer, buttons, program);
+            }
+
+            ButtonManager_ReadButtons(buttons, PORTA, PORTB, PORTC, PORTE);
+            if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondDown) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustSeconds(timer, -1);
+            }
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondUp) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustSeconds(timer, 1);
+            }
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_MinuteUp) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustMinutes(timer, 1);
+            }
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_MinuteDown) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustMinutes(timer, -1);
+            }
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_StartPause) == 
+                    ButtonStatus_ButtonPressed) {
+                if (timer->_State == TimerState_Paused) {
+                    TimerManager_Start(timer);
+                }
+                else {
+                    TimerManager_Pause(timer);
+                }
+            }
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_Reset) == 
+                    ButtonStatus_ButtonPressed) {
+                // Reload program
+                TimerManager_SetTime(timer, 0, 0);
+            }
+
+            ProgramManager_SetBypassSwitchState(program, 
+                ButtonManager_ButtonStatus(buttons, ButtonEnum_Bypass) == 
+                ButtonStatus_ButtonPressed);
+            
+            ProgramStatus status = ProgramManager_SetProgramSwitchState(program,
+                ButtonManager_GetProgramCode(buttons));
+        }
+    } while (0);
     
-    /*while (1)
-    {
-        // [Min Up][Min Down][Sec Up][Sec Down][Reset][Start/Pause][Bypass][0:4 Selector Value]
-        unsigned short button_io = ReadButtons();
-        // PORTB 2-5 Hex Switch
-        char item = GetSelectorValue(button_io);
-        if (item > 9)
-        {
-            item = (item - 10) + 'A';
-        }
-        else
-        {
-            item = '0' + item;
-        }
-        g_LEDsDisplaying[0] = item;
-        
-        item = PORTE & 0x7;
-        g_LEDsDisplaying[1] = '0' + item;
-    }*/
-    // Button polling code
-    while (1)
-    {
-        // Update what is being displayed
-        ++g_DisplayCounter;
-        if ((g_DisplayCounter >= 1000) && g_MessagePointer != g_MessageEndPointer)
-        {
-            g_DisplayCounter = 0;
-            g_LEDsDisplaying[0] = g_MessagePointer[0];
-            if (g_MessagePointer[0] == '\0')
-            {
-                g_LEDsDisplaying[1] = 0;
-                g_LEDsDisplaying[2] = 0;
-                g_LEDsDisplaying[3] = 0;
-            }
-            else
-            {
-                g_LEDsDisplaying[1] = g_MessagePointer[1];
-                if (g_MessagePointer[1] == '\0')
-                {
-                    g_LEDsDisplaying[2] = 0;
-                    g_LEDsDisplaying[3] = 0;
-                }
-                else
-                {
-                    g_LEDsDisplaying[2] = g_MessagePointer[2];
-                    if (g_MessagePointer[2] == '\0')
-                    {
-                        g_LEDsDisplaying[3] = 0;
-                    }
-                    else
-                    {
-                        g_LEDsDisplaying[3] = g_MessagePointer[3];
-                    }
-                }
-            }
-            g_MessagePointer++;
-        }
-        else if (g_MessagePointer == g_MessageEndPointer)
-        {
-            // Display the Timer info
-            g_LEDsDisplaying[0] = '0' + (g_CurrentTimerTime.Minutes / 10);
-            g_LEDsDisplaying[1] = '0' + (g_CurrentTimerTime.Minutes % 10);
-            g_LEDsDisplaying[2] = '0' + (g_CurrentTimerTime.Seconds / 10);
-            g_LEDsDisplaying[3] = '0' + (g_CurrentTimerTime.Seconds % 10);
-        }
-
-        
-        unsigned short buttons = ReadButtons();
-        buttons = DebounceButtons(buttons);
-        
-        if (g_ButtonDuration % 500 == 0)
-        {
-            if (IsSecDownPressed(buttons))
-            {
-                g_CurrentTimerTime.Seconds--;
-            }
-
-            if (IsSecUpPressed(buttons))
-            {
-                g_CurrentTimerTime.Seconds++;
-            }
-
-            if (IsMinDownPressed(buttons))
-            {
-                g_CurrentTimerTime.Minutes--;
-            }
-
-            if (IsMinUpPressed(buttons))
-            {
-                g_CurrentTimerTime.Minutes++;
-            }
-            /*
-            // Setup mode - Hold down minute up and down
-            if (!g_isRunning)
-            {
-                if (g_buttonDurations[BTN_MIN_DOWN] > 10000 && g_buttonDurations[BTN_MIN_UP] > 20000)
-                {
-                    // Need to hold for 1/2 a second before entering setup mode
-                    //EnterSetupMode();
-                }
-                else
-                {
-                    if (g_buttonDurations[BTN_MIN_DOWN] > 2500 && g_buttonDurations[BTN_MIN_DOWN] % 500 == 0 && g_buttonDurations[BTN_MIN_UP] == 0)
-                    {
-                        if (g_buttonDurations[BTN_MIN_DOWN] < 10000)
-                        {
-                            g_CurrentTimerTime.Minutes--;
-                        }
-                        else if (g_buttonDurations[BTN_MIN_DOWN] < 30000)
-                        {
-                            g_CurrentTimerTime.Minutes -= 5;
-                        }
-                        else
-                        {
-                            g_CurrentTimerTime.Minutes -= 10;
-                        }
-                    }
-
-                    if (g_buttonDurations[BTN_MIN_UP] > 20000 && g_buttonDurations[BTN_MIN_UP] % 5000 == 0 && g_buttonDurations[BTN_MIN_DOWN] == 0)
-                    {
-                        if (g_buttonDurations[BTN_MIN_UP] < 40000)
-                        {
-                            g_CurrentTimerTime.Minutes++;
-                        }
-                        else if (g_buttonDurations[BTN_MIN_UP] < 80000)
-                        {
-                            g_CurrentTimerTime.Minutes += 5;
-                        }
-                        else
-                        {
-                            g_CurrentTimerTime.Minutes += 10;
-                        }
-                    }
-
-                    if (g_buttonDurations[BTN_SEC_DOWN] > 20000 && g_buttonDurations[BTN_SEC_DOWN] % 5000 == 0 && g_buttonDurations[BTN_SEC_UP] == 0)
-                    {
-                        if (g_buttonDurations[BTN_SEC_DOWN] < 40000)
-                        {
-                            g_CurrentTimerTime.Seconds--;
-                        }
-                        else if (g_buttonDurations[BTN_SEC_DOWN] < 80000)
-                        {
-                            g_CurrentTimerTime.Seconds -= 5;
-                        }
-                        else
-                        {
-                            g_CurrentTimerTime.Seconds -= 10;
-                        }
-                    }
-
-                    if (g_buttonDurations[BTN_SEC_UP] > 20000 && g_buttonDurations[BTN_SEC_UP] % 5000 == 0 && g_buttonDurations[BTN_SEC_DOWN] == 0)
-                    {
-                        if (g_buttonDurations[BTN_SEC_UP] < 40000)
-                        {
-                            g_CurrentTimerTime.Seconds++;
-                        }
-                        else if (g_buttonDurations[BTN_SEC_UP] < 80000)
-                        {
-                            g_CurrentTimerTime.Seconds += 5;
-                        }
-                        else
-                        {
-                            g_CurrentTimerTime.Seconds += 10;
-                        }
-                    }
-                }
-            }*/
-
-            if (IsResetPressed(buttons))
-            {
-                g_CurrentTimerTime.Minutes = 0;
-                g_CurrentTimerTime.Seconds = 0;
-                StopProgram();
-                LoadProgram(GetSelectorValue(buttons));
-            }
-            else if (IsStartPressed(buttons))
-            {
-                StartProgram();
-            }
-        }
-    }
-
+    // Freeing the memory to be tidy, yes the proc gets a halt after return.
+    free(program);
+    free(timer);
+    free(buttons);
+    free(display);
+    _Exit(0);
     return;
-}
-
-void StartProgram()
-{
-    char starting_message[] = "Starting Program   ";
-    
-    if (g_ProgramNumber < 10)
-    {
-        starting_message[18] = '0' + g_ProgramNumber;
-    }
-    else if (g_ProgramNumber < 100)
-    {
-        starting_message[18] = '0' + (g_ProgramNumber / 10);
-        starting_message[19] = '0' + (g_ProgramNumber % 10);
-    }
-    
-    PrintMessage(starting_message);
-}
-
-void StopProgram()
-{
-    PrintMessage("Stopping Program");
-}
-
-void LoadProgram(unsigned int programNumber)
-{
-    g_ProgramNumber = (unsigned char)programNumber;
 }
