@@ -8,6 +8,8 @@
 #ifndef PROGRAM_H
 #define	PROGRAM_H
 
+#include "timemgr.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -20,16 +22,14 @@ typedef struct {
     unsigned char EditModeActive;
 } ProgramManagerState;
 
-typedef enum { 
-    PROGRAM_STATUS_OK, 
-    PROGRAM_STATUS_RELOAD
-} ProgramStatus;
-
-ProgramManagerState * CreateProgramManager();
+void InitializeProgramManager(ProgramManagerState * state);
 void ProgramManager_SetBypassSwitchState(ProgramManagerState * state, 
         unsigned char IsPressed);
-ProgramStatus ProgramManager_SetProgramSwitchState(ProgramManagerState * state,
-                unsigned char ProgramId);
+void ProgramManager_SetProgramSwitchState(ProgramManagerState * state, 
+        TimerManagerState * timer, unsigned char ProgramId);
+void ProgramManager_ToggleEditState(ProgramManagerState * state);
+void ProgramManager_LoadProgram(ProgramManagerState * state, 
+        TimerManagerState * timer);
 
 #ifdef	__cplusplus
 }

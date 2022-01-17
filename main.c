@@ -147,6 +147,7 @@ void __interrupt() irqHandler()
         if (++g_Timer1Counter >= 5)
 #endif
         {
+            g_Timer1Counter = 0;
             g_ClockTicks++;
         }
     }
@@ -231,105 +232,81 @@ void main(void) {
     INTCONbits.GIEL = 1;
     TMR0IE = 1;
     TMR1IE = 1;
-    UiState * display = NULL;
-    TimerManagerState * timer = NULL;
-    ButtonManagerState * buttons = NULL;
-    ProgramManagerState * program = NULL;
+    UiState display;
+    TimerManagerState timer;
+    ButtonManagerState buttons;
+    ProgramManagerState program;
     
-    do {
-        display = CreateUiComponent();
-        if (display == NULL) {
-            // The timer couldn't create the display control. Give static 4 LED
-            // error
-            PORTC = 0b11110000;
-            PORTD = 0b11000110;
-            break;
+    InitializeUiComponentState(&display);
+    PrintMessage(&display, "Start Up");
+
+    InitializeTimerManager(&timer);
+    InitializeButtonManager(&buttons);
+    InitializeProgramManager(&program);
+
+    // Main program
+    while (1) {
+        while (g_ClockTicks > 0) {
+            g_ClockTicks--;
+            if (TimerManager_TickSecond(&timer) == 
+                    TimerStatus_TimerCompleted) {
+                // Timer has completed
+            }
         }
 
-        PrintMessage(display, "Start Up");
-
-        timer = CreateTimerManager();
-        if (timer == NULL) {
-            // The timer couldn't be created which means that we cannot function
-            PrintMessage(display, "Error 01 - Restart Device");
-            break;
+        if (g_UpdateGUIFlag != 0) {
+            g_UpdateGUIFlag = 0;
+            UiUpdate(&display, &timer, &buttons, &program);
         }
 
-        ButtonManagerState * buttons = CreateButtonManager();
-        if (buttons == NULL) {
-            // The button manager couldn't be created which means the timer won't
-            // function
-            PrintMessage(display, "Error 02 - Restart Device");
-            break;
-        }
-        
-        program = CreateProgramManager();
-        if (program == NULL) {
-            PrintMessage(display, "Error 03 - Restart Device");
-            break;
-        }
-
-        // Main program
-        while (1) {
-            while (g_ClockTicks > 0) {
-                g_ClockTicks--;
-                if (TimerManager_TickSecond(timer) == 
-                        TimerStatus_TimerCompleted) {
-                    // Timer has completed
+        ButtonManager_ReadButtons(&buttons, PORTA, PORTB, PORTC, PORTE);
+        if (ButtonManager_ShouldProcessButtonClick(&buttons)) {
+            if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_SecondDown) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustSeconds(&timer, -1);
+            }
+            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_SecondUp) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustSeconds(&timer, 1);
+            }
+            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_MinuteUp) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustMinutes(&timer, 1);
+            }
+            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_MinuteDown) == 
+                    ButtonStatus_ButtonPressed) {
+                TimerManager_AdjustMinutes(&timer, -1);
+            }
+            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_StartPause) == 
+                    ButtonStatus_ButtonPressed) {
+                if (ButtonManager_GetProgramCode(&buttons) == 0xE ||
+                        program.EditModeActive != 0) {
+                    ProgramManager_ToggleEditState(&program);
+                } else {
+                    if (timer._State == TimerState_Paused) {
+                        TimerManager_Start(&timer);
+                    }
+                    else {
+                        TimerManager_Pause(&timer);
+                    }
                 }
             }
-
-            if (g_UpdateGUIFlag != 0) {
-                g_UpdateGUIFlag = 0;
-                UiUpdate(display, timer, buttons, program);
-            }
-
-            ButtonManager_ReadButtons(buttons, PORTA, PORTB, PORTC, PORTE);
-            if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondDown) == 
+            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_Reset) == 
                     ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustSeconds(timer, -1);
+                // Stop the timer and Reload the program
+                TimerManager_Pause(&timer);
+                ProgramManager_LoadProgram(&program, &timer);
             }
-            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondUp) == 
-                    ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustSeconds(timer, 1);
-            }
-            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_MinuteUp) == 
-                    ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustMinutes(timer, 1);
-            }
-            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_MinuteDown) == 
-                    ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustMinutes(timer, -1);
-            }
-            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_StartPause) == 
-                    ButtonStatus_ButtonPressed) {
-                if (timer->_State == TimerState_Paused) {
-                    TimerManager_Start(timer);
-                }
-                else {
-                    TimerManager_Pause(timer);
-                }
-            }
-            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_Reset) == 
-                    ButtonStatus_ButtonPressed) {
-                // Reload program
-                TimerManager_SetTime(timer, 0, 0);
-            }
-
-            ProgramManager_SetBypassSwitchState(program, 
-                ButtonManager_ButtonStatus(buttons, ButtonEnum_Bypass) == 
-                ButtonStatus_ButtonPressed);
-            
-            ProgramStatus status = ProgramManager_SetProgramSwitchState(program,
-                ButtonManager_GetProgramCode(buttons));
         }
-    } while (0);
-    
-    // Freeing the memory to be tidy, yes the proc gets a halt after return.
-    free(program);
-    free(timer);
-    free(buttons);
-    free(display);
+
+        // Bypass switch is once the switch is in the on position
+        ProgramManager_SetBypassSwitchState(&program, 
+            ButtonManager_ButtonStatus(&buttons, ButtonEnum_Bypass) == 
+            ButtonStatus_ButtonPressed);
+
+        ProgramManager_SetProgramSwitchState(&program, &timer,
+            ButtonManager_GetProgramCode(&buttons));
+    }
+
     _Exit(0);
-    return;
 }

@@ -8,16 +8,12 @@
 #include "program.h"
 #include "memory.h"
 
-ProgramManagerState * CreateProgramManager() {
-    ProgramManagerState * state = (ProgramManagerState*)malloc(sizeof(ProgramManagerState));
-    if (state != NULL) {
-        state->ProgramNumber = 0;
-        state->InProgrammingMode = 0;
-        state->TargetActive = 0;
-        state->TargetOverrideActive = 0;
-        state->EditModeActive = 0;
-    }
-    return state;    
+void InitializeProgramManager(ProgramManagerState * state) {
+    state->ProgramNumber = 0;
+    state->InProgrammingMode = 0;
+    state->TargetActive = 0;
+    state->TargetOverrideActive = 0;
+    state->EditModeActive = 0;
 }
 
 void ProgramManager_SetBypassSwitchState(ProgramManagerState * state, 
@@ -25,8 +21,8 @@ void ProgramManager_SetBypassSwitchState(ProgramManagerState * state,
     state->TargetOverrideActive = IsPressed;
 }
 
-ProgramStatus ProgramManager_SetProgramSwitchState(ProgramManagerState * state,
-                unsigned char ProgramId){
+void ProgramManager_SetProgramSwitchState(ProgramManagerState * state, 
+        TimerManagerState * timer, unsigned char ProgramId){
     if (state->ProgramNumber != ProgramId) {
         Program potential_program;
         Stage potential_stages[MAX_NUM_OF_STAGES];
@@ -35,6 +31,13 @@ ProgramStatus ProgramManager_SetProgramSwitchState(ProgramManagerState * state,
         ReadProgramStatus status = MemoryManager_ReadProgram(ProgramId, 
                 &potential_program);
     }
-    return PROGRAM_STATUS_OK;
 }
 
+void ProgramManager_ToggleEditState(ProgramManagerState * state) {
+    state->EditModeActive = !state->EditModeActive;
+}
+
+void ProgramManager_LoadProgram(ProgramManagerState * state, 
+        TimerManagerState * timer) {
+    
+}

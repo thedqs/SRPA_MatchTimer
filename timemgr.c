@@ -7,14 +7,10 @@
 #include "timemgr.h"
 #include <stdlib.h>
 
-TimerManagerState * CreateTimerManager(){
-    TimerManagerState * state = (TimerManagerState*)malloc(sizeof(TimerManagerState));
-    if (state != NULL) {
-        state->_CurrentTime.Minute = 0;
-        state->_CurrentTime.Second = 0;
-        state->_State = TimerState_Paused;
-    }
-    return state;
+void InitializeTimerManager(TimerManagerState * state) {
+    state->_CurrentTime.Minute = 0;
+    state->_CurrentTime.Second = 0;
+    state->_State = TimerState_Paused;
 }
 
 TimerStatus TimerManager_TickSecond(TimerManagerState * state){
@@ -32,6 +28,7 @@ TimerStatus TimerManager_TickSecond(TimerManagerState * state){
             if (minutes < 0) {
                 state->_CurrentTime.Second = 0;
                 state->_CurrentTime.Minute = 0;
+                state->_State = TimerState_Paused;
                 return TimerStatus_TimerCompleted;
             }
             else {

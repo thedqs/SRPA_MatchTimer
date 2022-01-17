@@ -19,7 +19,7 @@
 
 typedef enum { TimerState_Paused, TimerState_Starting, TimerState_Running } TimerState;
 
-typedef struct TimerManagerState {
+typedef struct {
     struct {
         unsigned char Minute;
         unsigned char Second;
@@ -30,7 +30,7 @@ typedef struct TimerManagerState {
 
 typedef enum { TimerStatus_Ok, TimerStatus_TimerCompleted, TimerStatus_Error } TimerStatus;
 
-TimerManagerState * CreateTimerManager();
+void InitializeTimerManager(TimerManagerState * state);
 TimerStatus TimerManager_TickSecond(TimerManagerState * state);
 void TimerManager_SetTime(TimerManagerState * state, unsigned char minutes, unsigned char seconds);
 void TimerManager_AdjustSeconds(TimerManagerState * state, signed char delta_seconds);

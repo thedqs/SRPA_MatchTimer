@@ -32,7 +32,7 @@ typedef struct {
     long update_count;
 } UiState;
 
-UiState * CreateUiComponent();
+void InitializeUiComponentState(UiState * state);
 void PrintMessage(UiState * gui, char * msg);
 void UiUpdate(UiState * gui, TimerManagerState * timer, 
         ButtonManagerState * buttons, ProgramManagerState * program);

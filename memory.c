@@ -21,7 +21,7 @@ __EEPROM_DATA(0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
 __EEPROM_DATA(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
 __EEPROM_DATA(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
 __EEPROM_DATA(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
-__EEPROM_DATA(0x00, 'R', 'a', 'p', 'i', 'd', ' ', 'F');
+__EEPROM_DATA(0x38, 'R', 'a', 'p', 'i', 'd', ' ', 'F');
 __EEPROM_DATA('i', 'r', 'e', 0x00, 0x00, 0x00, 0x00, 0x00);
 __EEPROM_DATA(0x00, 0x02, 'P', 'r', 'e', 'p', ' ', 'T');
 __EEPROM_DATA('i', 'm', 'e', 0x00, 0x00, 0x00, 0x00, 0x00);
@@ -33,8 +33,8 @@ unsigned char eeprom18_read(unsigned short address) {
     EECON1bits.EEPGD = 0; //accesses data EEPROM memory
     EECON1bits.CFGS = 0; //accesses data EEPROM memory
 
-    EEADRH = address >> 8;
-    EEADR = address;
+    EEADRH = (unsigned char)((address >> 8) & 0xFF);
+    EEADR = (unsigned char)(address & 0xFF);
 
     EECON1bits.RD = 1; //initiates an EEPROM read
     Nop(); //it can be read after one NOP instruction
@@ -50,8 +50,8 @@ unsigned char eeprom18_write(unsigned short address, unsigned char value) {
     EECON1bits.EEPGD = 0; //accesses data EEPROM memory
     EECON1bits.CFGS = 0; //accesses data EEPROM memory
 
-    EEADRH = address >> 8;
-    EEADR = address;
+    EEADRH = (unsigned char)((address >> 8) & 0xFF);
+    EEADR = (unsigned char)(address & 0xFF);
 
     EEDATA = value;
 
@@ -64,7 +64,7 @@ unsigned char eeprom18_write(unsigned short address, unsigned char value) {
     EECON1bits.WR = 1; //initiates a data EEPROM erase/write cycle
     while(EECON1bits.WR); //waits for write cycle to complete
     
-    GIE = oldGIE; //restore interrupts
+    GIE = (oldGIE != 0); //restore interrupts
     
     if (EECON1bits.WRERR) {
         successful_write = 0;
@@ -81,8 +81,7 @@ ReadProgramStatus MemoryManager_ReadProgram(unsigned char program_id,
         return ReadProgramStatus_NoProgram;
     }
     
-    program_info->CountOfStages = 0;
-    memset(program_info->Name, 0, sizeof(program_info->Name));
+    unsigned char preallocated_stages = program_info->CountOfStages;
     unsigned short program_address = (unsigned short)(eeprom18_read((unsigned short)(program_id << 1)) << 8 | 
         eeprom18_read((unsigned short)(program_id << 1) + 1));
     if (program_address == 0) {
@@ -105,8 +104,8 @@ ReadProgramStatus MemoryManager_ReadProgram(unsigned char program_id,
     
     unsigned char stage_count = eeprom18_read(pointer);
     pointer++;
-    if (stage_count > program_info->CountOfStages) {
-        program_info->CountOfStages = stage_count;
+    program_info->CountOfStages = stage_count;
+    if (stage_count > preallocated_stages) {
         return ReadProgramStatus_NeedRoomForStages;
     }
     

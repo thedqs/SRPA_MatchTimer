@@ -15,17 +15,13 @@
 
 unsigned char getLEDCode(char ch);
 
-UiState * CreateUiComponent() {
-    UiState * state = (UiState*)malloc(sizeof(UiState));
-    if (state != NULL) {
-        state->CurrentLED = 0;
-        memset(state->LEDsDisplaying, 0, sizeof(state->LEDsDisplaying));
-        memset(state->MessageBuffer, 0, sizeof(state->MessageBuffer));
-        state->MessagePointer = state->MessageEndPointer = state->MessageBuffer;
-        // Update on first call
-        state->update_count = 500000;
-    }
-    return state;    
+void InitializeUiComponentState(UiState * state) {
+    state->CurrentLED = 0;
+    memset(state->LEDsDisplaying, 0, sizeof(state->LEDsDisplaying));
+    memset(state->MessageBuffer, 0, sizeof(state->MessageBuffer));
+    state->MessagePointer = state->MessageEndPointer = state->MessageBuffer;
+    // Update on first call
+    state->update_count = 500000;
 }
 
 //  LED:  pgfedcba

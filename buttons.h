@@ -30,15 +30,20 @@ typedef enum {
 
 typedef struct {
     ButtonMap buttons_state;
-    int ticks_since_button_change;
+    unsigned char bypass_state;
+    long ticks_since_bypass_change;
+    long ticks_since_button_change;
+    long ticks_since_previous_click;
 } ButtonManagerState;
 
-ButtonManagerState * CreateButtonManager();
+void InitializeButtonManager(ButtonManagerState * state);
 ButtonStatus ButtonManager_ButtonStatus(ButtonManagerState * state, 
         ButtonEnum button);
 void ButtonManager_ReadButtons(ButtonManagerState * state, unsigned char portA, 
         unsigned char portB, unsigned char portC, unsigned char portE);
 unsigned char ButtonManager_GetProgramCode(ButtonManagerState * state);
+unsigned char ButtonManager_ShouldProcessButtonClick(
+    ButtonManagerState * state);
 
 #ifdef	__cplusplus
 }
