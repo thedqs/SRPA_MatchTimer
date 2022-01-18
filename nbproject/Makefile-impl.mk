@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=SRPA_MatchTimer
+PROJECTNAME=TargetTimerV2.X
 
 # Active Configuration
 DEFAULTCONF=default

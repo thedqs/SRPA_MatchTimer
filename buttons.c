@@ -1,6 +1,6 @@
 /*
- * File:   gui.c
- * Author: thedq
+ * File:   buttons.c
+ * Author: David Springgay
  *
  * Created on January 15, 2022, 12:38 PM
  */
@@ -101,25 +101,25 @@ unsigned char ButtonManager_ShouldProcessButtonClick(
     ButtonManagerState * state) {
     unsigned char should_click = 0;
     state->ticks_since_previous_click += 1;
-    if (state->ticks_since_button_change >= 50000) {
+    if (state->ticks_since_button_change >= 40000) {
         if (state->ticks_since_previous_click > 1000) {
             should_click = 1;
             state->ticks_since_previous_click = 0;
         }
     }
-    else if (state->ticks_since_button_change >= 40000) {
+    else if (state->ticks_since_button_change >= 20000) {
         if (state->ticks_since_previous_click > 2000) {
             should_click = 1;
             state->ticks_since_previous_click = 0;
         }
     }
-    else if (state->ticks_since_button_change >= 20000) {
+    else if (state->ticks_since_button_change >= 10000) {
         if (state->ticks_since_previous_click > 3000) {
             should_click = 1;
             state->ticks_since_previous_click = 0;
         }
     }
-    else if (state->ticks_since_button_change >= 10000) {
+    else if (state->ticks_since_button_change >= 5000) {
         if (state->ticks_since_previous_click > 4000) {
             should_click = 1;
             state->ticks_since_previous_click = 0;

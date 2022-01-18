@@ -1,10 +1,13 @@
 /*
  * File:   main.c
- * Author: thedqs
+ * Author: David Springgay
  *
  * Created on January 6, 2020, 1:13 PM
  * Target Timer V2 for Seattle Rifle and Pistol Association
  */
+
+#include "memory.h"
+
 
 #define DEBUG
 #define USE_TMR1_INT
@@ -232,80 +235,89 @@ void main(void) {
     INTCONbits.GIEL = 1;
     TMR0IE = 1;
     TMR1IE = 1;
-    UiState display;
-    TimerManagerState timer;
-    ButtonManagerState buttons;
-    ProgramManagerState program;
+    UiState display_state;
+    TimerManagerState timer_state;
+    ButtonManagerState buttons_state;
+    ProgramManagerState program_state;
     
-    InitializeUiComponentState(&display);
-    PrintMessage(&display, "Start Up");
+    UiState * display = &display_state;
+    TimerManagerState * timer = &timer_state;
+    ButtonManagerState * buttons = &buttons_state;
+    ProgramManagerState * program = &program_state;
+    
+    InitializeUiComponentState(display);
+    PrintMessage(display, "Start Up");
 
-    InitializeTimerManager(&timer);
-    InitializeButtonManager(&buttons);
-    InitializeProgramManager(&program);
+    InitializeTimerManager(timer);
+    InitializeButtonManager(buttons);
+    InitializeProgramManager(program);
+    
+    // Load up the program so that it is valid
+    ProgramManager_LoadProgram(program, timer);
 
     // Main program
     while (1) {
         while (g_ClockTicks > 0) {
             g_ClockTicks--;
-            if (TimerManager_TickSecond(&timer) == 
-                    TimerStatus_TimerCompleted) {
+            if (TimerManager_TickSecond(timer) == 
+                TimerStatus_TimerCompleted) {
                 // Timer has completed
+                ProgramManager_SignalStageComplete(program, timer, display);
             }
         }
 
         if (g_UpdateGUIFlag != 0) {
             g_UpdateGUIFlag = 0;
-            UiUpdate(&display, &timer, &buttons, &program);
+            UiUpdate(display, timer, buttons, program);
         }
 
-        ButtonManager_ReadButtons(&buttons, PORTA, PORTB, PORTC, PORTE);
-        if (ButtonManager_ShouldProcessButtonClick(&buttons)) {
-            if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_SecondDown) == 
+        ButtonManager_ReadButtons(buttons, PORTA, PORTB, PORTC, PORTE);
+        if (ButtonManager_ShouldProcessButtonClick(buttons)) {
+            if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondDown) == 
                     ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustSeconds(&timer, -1);
+                TimerManager_AdjustSeconds(timer, -1);
             }
-            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_SecondUp) == 
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondUp) == 
                     ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustSeconds(&timer, 1);
+                TimerManager_AdjustSeconds(timer, 1);
             }
-            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_MinuteUp) == 
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_MinuteUp) == 
                     ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustMinutes(&timer, 1);
+                TimerManager_AdjustMinutes(timer, 1);
             }
-            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_MinuteDown) == 
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_MinuteDown) == 
                     ButtonStatus_ButtonPressed) {
-                TimerManager_AdjustMinutes(&timer, -1);
+                TimerManager_AdjustMinutes(timer, -1);
             }
-            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_StartPause) == 
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_StartPause) == 
                     ButtonStatus_ButtonPressed) {
-                if (ButtonManager_GetProgramCode(&buttons) == 0xE ||
-                        program.EditModeActive != 0) {
-                    ProgramManager_ToggleEditState(&program);
+                if (ButtonManager_GetProgramCode(buttons) == 0xE ||
+                        program->EditModeActive != 0) {
+                    ProgramManager_ToggleEditState(program);
                 } else {
-                    if (timer._State == TimerState_Paused) {
-                        TimerManager_Start(&timer);
+                    if (timer->_State == TimerState_Paused) {
+                        ProgramManager_ResumeProgram(program, timer);
                     }
                     else {
-                        TimerManager_Pause(&timer);
+                        ProgramManager_PauseProgram(program, timer);
                     }
                 }
             }
-            else if (ButtonManager_ButtonStatus(&buttons, ButtonEnum_Reset) == 
+            else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_Reset) == 
                     ButtonStatus_ButtonPressed) {
                 // Stop the timer and Reload the program
-                TimerManager_Pause(&timer);
-                ProgramManager_LoadProgram(&program, &timer);
+                TimerManager_Pause(timer);
+                ProgramManager_LoadProgram(program, timer);
             }
         }
 
         // Bypass switch is once the switch is in the on position
-        ProgramManager_SetBypassSwitchState(&program, 
-            ButtonManager_ButtonStatus(&buttons, ButtonEnum_Bypass) == 
+        ProgramManager_SetBypassSwitchState(program, 
+            ButtonManager_ButtonStatus(buttons, ButtonEnum_Bypass) == 
             ButtonStatus_ButtonPressed);
 
-        ProgramManager_SetProgramSwitchState(&program, &timer,
-            ButtonManager_GetProgramCode(&buttons));
+        ProgramManager_SetProgramSwitchState(program, timer, display,
+            ButtonManager_GetProgramCode(buttons));
     }
 
     _Exit(0);

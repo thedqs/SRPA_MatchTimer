@@ -23,7 +23,7 @@
 
 #define MAX_MESSAGE_LENGTH 128
 
-typedef struct {
+typedef struct _UiState {
     char LEDsDisplaying[4];
     char MessageBuffer[MAX_MESSAGE_LENGTH + 1];
     int CurrentLED;
