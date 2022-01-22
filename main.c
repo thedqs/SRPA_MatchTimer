@@ -253,7 +253,7 @@ void main(void) {
     InitializeProgramManager(program);
     
     // Load up the program so that it is valid
-    ProgramManager_LoadProgram(program, timer);
+    ProgramManager_LoadProgram(program, timer, display);
 
     // Main program
     while (1) {
@@ -296,7 +296,7 @@ void main(void) {
                     ProgramManager_ToggleEditState(program);
                 } else {
                     if (timer->_State == TimerState_Paused) {
-                        ProgramManager_ResumeProgram(program, timer);
+                        ProgramManager_ResumeProgram(program, timer, display);
                     }
                     else {
                         ProgramManager_PauseProgram(program, timer);
@@ -307,7 +307,7 @@ void main(void) {
                     ButtonStatus_ButtonPressed) {
                 // Stop the timer and Reload the program
                 TimerManager_Pause(timer);
-                ProgramManager_LoadProgram(program, timer);
+                ProgramManager_LoadProgram(program, timer, display);
             }
         }
 

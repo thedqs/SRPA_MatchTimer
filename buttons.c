@@ -51,6 +51,7 @@ void ButtonManager_ReadButtons(ButtonManagerState * state, unsigned char portA,
     else {
         state->buttons_state = button_value;
         state->ticks_since_button_change = 0;
+        state->ticks_since_previous_click = 0;
     }
 }
 
@@ -124,6 +125,9 @@ unsigned char ButtonManager_ShouldProcessButtonClick(
             should_click = 1;
             state->ticks_since_previous_click = 0;
         }
+    }
+    else if (state->ticks_since_button_change == 500) {
+        should_click = 1;
     }
 
     return should_click;
