@@ -34,6 +34,7 @@ typedef struct _UiState {
 
 void InitializeUiComponentState(UiState * state);
 void PrintMessage(UiState * gui, char * msg);
+void ClearMessage(UiState * ui);
 void UiUpdate(UiState * gui, TimerManagerState * timer, 
         ButtonManagerState * buttons, ProgramManagerState * program);
 

@@ -101,6 +101,9 @@ void PrintMessage(UiState * ui, char * msg)
     ui->MessageEndPointer += len + 2;
 }
 
+void ClearMessage(UiState * ui) {
+    ui->MessageEndPointer = ui->MessagePointer = ui->MessageBuffer;
+}
 
 void UiUpdate(UiState * ui, TimerManagerState * timer, 
         ButtonManagerState * buttons, ProgramManagerState * program)
