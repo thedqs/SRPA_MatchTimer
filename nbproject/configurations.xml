@@ -23,6 +23,7 @@
       <itemPath>ui.c</itemPath>
       <itemPath>program.c</itemPath>
       <itemPath>memory.c</itemPath>
+      <itemPath>firingsets.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

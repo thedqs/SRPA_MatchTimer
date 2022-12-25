@@ -23,7 +23,7 @@
 
 #define MAX_MESSAGE_LENGTH 128
 
-typedef struct {
+typedef struct _UiState {
     char LEDsDisplaying[4];
     char MessageBuffer[MAX_MESSAGE_LENGTH + 1];
     int CurrentLED;
@@ -32,8 +32,9 @@ typedef struct {
     long update_count;
 } UiState;
 
-UiState * CreateUiComponent();
+void InitializeUiComponentState(UiState * state);
 void PrintMessage(UiState * gui, char * msg);
+void ClearMessage(UiState * ui);
 void UiUpdate(UiState * gui, TimerManagerState * timer, 
         ButtonManagerState * buttons, ProgramManagerState * program);
 

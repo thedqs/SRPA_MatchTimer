@@ -15,17 +15,13 @@
 
 unsigned char getLEDCode(char ch);
 
-UiState * CreateUiComponent() {
-    UiState * state = (UiState*)malloc(sizeof(UiState));
-    if (state != NULL) {
-        state->CurrentLED = 0;
-        memset(state->LEDsDisplaying, 0, sizeof(state->LEDsDisplaying));
-        memset(state->MessageBuffer, 0, sizeof(state->MessageBuffer));
-        state->MessagePointer = state->MessageEndPointer = state->MessageBuffer;
-        // Update on first call
-        state->update_count = 500000;
-    }
-    return state;    
+void InitializeUiComponentState(UiState * state) {
+    state->CurrentLED = 0;
+    memset(state->LEDsDisplaying, 0, sizeof(state->LEDsDisplaying));
+    memset(state->MessageBuffer, 0, sizeof(state->MessageBuffer));
+    state->MessagePointer = state->MessageEndPointer = state->MessageBuffer;
+    // Update on first call
+    state->update_count = 500000;
 }
 
 //  LED:  pgfedcba
@@ -61,9 +57,9 @@ static const unsigned char s_LEDCodes[] = {
 //  `           a           b           c           d           e
     0b10000000, 0b01110111, 0b01111100, 0b01011000, 0b01011110, 0b01111001,
 //  f           g           h           i           j           k
-    0b01110001, 0b00111101, 0b01110100, 0b00110000, 0b00011110, 0b01110110,
+    0b01110001, 0b00111101, 0b01110100, 0b00010000, 0b00011110, 0b01110110,
 //  l           m           n           o           p           q
-    0b00111000, 0b10000000, 0b01010100, 0b01011100, 0b01110011, 0b01100111,
+    0b00111000, 0b01010100, 0b01010100, 0b01011100, 0b01110011, 0b01100111,
 //  r           s           t           u           v           w
     0b01010000, 0b01101101, 0b01110000, 0b00011100, 0b01110010, 0b10000000,
 //  x           y           z           {           |           }
@@ -91,7 +87,7 @@ unsigned char getLEDCode(char ch)
 void PrintMessage(UiState * ui, char * msg)
 {
     // Likely we'll have printed out our messages already.
-    if (ui->MessagePointer == ui->MessageEndPointer)
+    if (ui->MessagePointer >= ui->MessageEndPointer)
     {
         ui->MessageEndPointer = ui->MessagePointer = ui->MessageBuffer;
     }
@@ -105,49 +101,59 @@ void PrintMessage(UiState * ui, char * msg)
     ui->MessageEndPointer += len + 2;
 }
 
+void ClearMessage(UiState * ui) {
+    ui->MessageEndPointer = ui->MessagePointer = ui->MessageBuffer;
+}
 
 void UiUpdate(UiState * ui, TimerManagerState * timer, 
         ButtonManagerState * buttons, ProgramManagerState * program)
 {
+    unsigned char displaying_message = 
+        (ui->MessagePointer <= ui->MessageEndPointer);
     // 8-seg LED display control
     ui->update_count++;
-    if (ui->update_count >= 0x200) {
+    if (ui->update_count >= 0x100 && displaying_message) {
         // Displaying a message when our message buffer has something
-        if (ui->MessagePointer != ui->MessageEndPointer) {
-            memset(ui->LEDsDisplaying, 0, sizeof(ui->LEDsDisplaying));
-            unsigned char characters_copied = 0;
-            while (ui->MessagePointer != ui->MessageEndPointer && 
-                    characters_copied < 4) {
+        memset(ui->LEDsDisplaying, 0, sizeof(ui->LEDsDisplaying));
+        unsigned char characters_copied = 0;
+        while (ui->MessagePointer < ui->MessageEndPointer && 
+                characters_copied < 4) {
+            if (ui->MessagePointer + characters_copied >= 
+                    ui->MessageEndPointer - 1) {
+                ui->LEDsDisplaying[characters_copied] = '\0';
+            }
+            else {
                 ui->LEDsDisplaying[characters_copied] = 
                         ui->MessagePointer[characters_copied];
-                characters_copied++;
             }
-            ui->MessagePointer += 1;
+            characters_copied++;
         }
-        else {
-            // We are just going to display the timer time
-            unsigned char minutes_ones = timer->_CurrentTime.Minute;
-            unsigned char minutes_tens = 0;
-            unsigned char seconds_ones = timer->_CurrentTime.Second;
-            unsigned char seconds_tens = 0;
-            
-            while (minutes_ones >= 10) {
-                minutes_tens++;
-                minutes_ones -= 10;
-            }
-            
-            while (seconds_ones >= 10) {
-                seconds_tens++;
-                seconds_ones -= 10;
-            }
-
-            ui->LEDsDisplaying[0] = '0' + minutes_tens;
-            ui->LEDsDisplaying[1] = '0' + minutes_ones;
-            ui->LEDsDisplaying[2] = '0' + seconds_tens;
-            ui->LEDsDisplaying[3] = '0' + seconds_ones;
-        }
+        ui->MessagePointer += 1;
         ui->update_count = 0;
     }
+    else if (!displaying_message) {
+        // We are just going to display the timer time
+        unsigned char minutes_ones = timer->_CurrentTime.Minute;
+        unsigned char minutes_tens = 0;
+        unsigned char seconds_ones = timer->_CurrentTime.Second;
+        unsigned char seconds_tens = 0;
+
+        while (minutes_ones >= 10) {
+            minutes_tens++;
+            minutes_ones -= 10;
+        }
+
+        while (seconds_ones >= 10) {
+            seconds_tens++;
+            seconds_ones -= 10;
+        }
+
+        ui->LEDsDisplaying[0] = '0' + minutes_tens;
+        ui->LEDsDisplaying[1] = '0' + minutes_ones;
+        ui->LEDsDisplaying[2] = '0' + seconds_tens;
+        ui->LEDsDisplaying[3] = '0' + seconds_ones;
+    }
+
     
     // See which LED we are going to be controlling
     unsigned char nextLED = (ui->CurrentLED + 1) % 4;

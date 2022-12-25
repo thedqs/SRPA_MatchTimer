@@ -1,13 +1,16 @@
 /*
  * File:   main.c
- * Author: thedqs
+ * Author: David Springgay
  *
  * Created on January 6, 2020, 1:13 PM
  * Target Timer V2 for Seattle Rifle and Pistol Association
  */
 
-#define DEBUG
-#define USE_TMR1_INT
+#include "memory.h"
+
+
+//#define DEBUG
+//#define TMR1_WITH_WATCH_CRYSTAL
 
 // CONFIG1H
 #ifdef DEBUG
@@ -112,20 +115,51 @@
 #include "buttons.h"
 #include "program.h"
 
-//#define CLK_AT_4MHz 1
+// If we are debugging then the internal clock is used otherwise the 20 MHz
+#ifdef DEBUG
+#define CLK_SPEED_IN_MHz 4
+#else
+#define CLK_SPEED_IN_MHz 20
+#endif
 
-#ifndef USE_TMR1_INT
+#define CYCLES_PER_MS (CLK_SPEED_IN_MHz * 1000)
+
+#ifdef TMR1_WITH_WATCH_CRYSTAL
 #define TMR1OFF_H 0x7F
 #define TMR1OFF_L 0xFF
+#define TIMER1_TICKS_PER_INT 50000
+// The prescaler will be 1:1 as the watch crystal is 32767 ticks/sec
+#define TMR1_PRESCALER b00
+#define TMR1_CLOCK_SELECT 1
+#else
+// TMR1 fires when it rolls over from 65535 to 0
+#ifndef TMR1_25k
+// This offset will allow the timer to fire once every 50000 ticks
+#define TMR1OFF_H 0x3C
+#define TMR1OFF_L 0xAF
+#define TIMER1_TICKS_PER_INT 50000
 #else
 // This gives us 25000 ticks per interrupt 
 // 40535
 #define TMR1OFF_H 0x9E
 #define TMR1OFF_L 0x57
+#define TIMER1_TICKS_PER_INT 25000
+#endif
+// The TIMER1 gets the input as the OSC/4 and we set the prescaler to 1:4
+#ifdef DEBUG
+#define TMR1_INTS_PER_SECOND 5
+// This should be the precompiler making this calculation so we get rid of this
+// ifdef and just allow the compiler to compute the INTS per second for timer 1
+//    ((CYCLES_PER_MS / 16) * 1000 / TIMER1_TICKS_PER_INT)
+#else
+#define TMR1_INTS_PER_SECOND 25
+#endif
+#define TMR1_PRESCALER 0b10
+#define TMR1_CLOCK_SELECT 0
 #endif
 
 volatile int g_Timer1Counter = 0;
-volatile unsigned char g_ClockTicks = 0;
+volatile unsigned char g_ClockSecondTicks = 0;
 volatile unsigned char g_UpdateGUIFlag = 0;
 
 void __interrupt() irqHandler()
@@ -141,24 +175,21 @@ void __interrupt() irqHandler()
         TMR1IF = 0;
         TMR1H = TMR1OFF_H;
         TMR1L = TMR1OFF_L;
-#ifndef CLK_AT_4MHz        
-        if (++g_Timer1Counter >= 10)
-#else
-        if (++g_Timer1Counter >= 5)
-#endif
+
+        if (++g_Timer1Counter >= TMR1_INTS_PER_SECOND)
         {
-            g_ClockTicks++;
+            g_Timer1Counter = 0;
+            g_ClockSecondTicks++;
         }
     }
 }
 
 void SleepEx(unsigned int ms)
 {
-    // We are at 8 MHz so we need 8000 nops per ms (so one increment, one 
-    // compare and one nop)
+    // There are 3 instructions per loop cycle
     for (unsigned int currentMs = 0; currentMs < ms; ++currentMs)
     {
-        for (unsigned short tick = 0; tick < 3000; ++tick)
+        for (unsigned short tick = 0; tick < (CYCLES_PER_MS / 3); ++tick)
         {
             __nop();
         }
@@ -200,22 +231,8 @@ void main(void) {
     T0CONbits.T0PS = 0b010;
     T0CONbits.T08BIT = 1;
     
-#ifdef USE_TMR1_INT
-    // TMR1 is OSC/4 so 1MHz It overflows and fires the interrupt at 65536.
-    // We set the prescaler to 8:1 which is 125000/sec so we ask for the
-    // interrupt ever 25000 ticks and after 5 interrupts increment the second
-    
-    T1CONbits.T1CKPS = 0b11;
-    // Use the 32.768 kHz Clock Osc
-    T1CONbits.TMR1CS = 0;
-#else
-    // T1 fires at 32.768 kHz. So 1 second = 32768 and the overflow is at
-    // 65535 so we need to set the start at 32767.
-    // Prescaler value 1:1 
-    T1CONbits.T1CKPS = 0b00;
-    // Use the 32.768 kHz Clock Osc
-    T1CONbits.TMR1CS = 0;
-#endif
+    T1CONbits.T1CKPS = TMR1_PRESCALER;
+    T1CONbits.TMR1CS = TMR1_CLOCK_SELECT;
     T1CONbits.T1RD16 = 1;
     T1CONbits.T1OSCEN = 1;
     T1CONbits.T1SYNC = 1;
@@ -231,60 +248,44 @@ void main(void) {
     INTCONbits.GIEL = 1;
     TMR0IE = 1;
     TMR1IE = 1;
-    UiState * display = NULL;
-    TimerManagerState * timer = NULL;
-    ButtonManagerState * buttons = NULL;
-    ProgramManagerState * program = NULL;
+    UiState display_state;
+    TimerManagerState timer_state;
+    ButtonManagerState buttons_state;
+    ProgramManagerState program_state;
     
-    do {
-        display = CreateUiComponent();
-        if (display == NULL) {
-            // The timer couldn't create the display control. Give static 4 LED
-            // error
-            PORTC = 0b11110000;
-            PORTD = 0b11000110;
-            break;
-        }
+    UiState * display = &display_state;
+    TimerManagerState * timer = &timer_state;
+    ButtonManagerState * buttons = &buttons_state;
+    ProgramManagerState * program = &program_state;
+    
+    InitializeUiComponentState(display);
+    PrintMessage(display, "Start Up");
 
-        PrintMessage(display, "Start Up");
+    InitializeTimerManager(timer);
+    InitializeButtonManager(buttons);
+    InitializeProgramManager(program);
+    
+    // Load up the program so that it is valid
+    ProgramManager_LoadProgram(program, timer, display);
 
-        timer = CreateTimerManager();
-        if (timer == NULL) {
-            // The timer couldn't be created which means that we cannot function
-            PrintMessage(display, "Error 01 - Restart Device");
-            break;
-        }
-
-        ButtonManagerState * buttons = CreateButtonManager();
-        if (buttons == NULL) {
-            // The button manager couldn't be created which means the timer won't
-            // function
-            PrintMessage(display, "Error 02 - Restart Device");
-            break;
-        }
-        
-        program = CreateProgramManager();
-        if (program == NULL) {
-            PrintMessage(display, "Error 03 - Restart Device");
-            break;
-        }
-
-        // Main program
-        while (1) {
-            while (g_ClockTicks > 0) {
-                g_ClockTicks--;
-                if (TimerManager_TickSecond(timer) == 
-                        TimerStatus_TimerCompleted) {
-                    // Timer has completed
-                }
+    // Main program
+    while (1) {
+        while (g_ClockSecondTicks > 0) {
+            g_ClockSecondTicks--;
+            if (TimerManager_TickSecond(timer) == 
+                TimerStatus_TimerCompleted) {
+                // Timer has completed
+                ProgramManager_SignalStageComplete(program, timer, display);
             }
+        }
 
-            if (g_UpdateGUIFlag != 0) {
-                g_UpdateGUIFlag = 0;
-                UiUpdate(display, timer, buttons, program);
-            }
+        if (g_UpdateGUIFlag != 0) {
+            g_UpdateGUIFlag = 0;
+            UiUpdate(display, timer, buttons, program);
+        }
 
-            ButtonManager_ReadButtons(buttons, PORTA, PORTB, PORTC, PORTE);
+        ButtonManager_ReadButtons(buttons, PORTA, PORTB, PORTC, PORTE);
+        if (ButtonManager_ShouldProcessButtonClick(buttons)) {
             if (ButtonManager_ButtonStatus(buttons, ButtonEnum_SecondDown) == 
                     ButtonStatus_ButtonPressed) {
                 TimerManager_AdjustSeconds(timer, -1);
@@ -303,33 +304,34 @@ void main(void) {
             }
             else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_StartPause) == 
                     ButtonStatus_ButtonPressed) {
-                if (timer->_State == TimerState_Paused) {
-                    TimerManager_Start(timer);
-                }
-                else {
-                    TimerManager_Pause(timer);
+                if (ButtonManager_GetProgramCode(buttons) == 0xE ||
+                        program->EditModeActive != 0) {
+                    ProgramManager_ToggleEditState(program);
+                } else {
+                    if (timer->_State == TimerState_Paused) {
+                        ProgramManager_ResumeProgram(program, timer, display);
+                    }
+                    else {
+                        ProgramManager_PauseProgram(program, timer);
+                    }
                 }
             }
             else if (ButtonManager_ButtonStatus(buttons, ButtonEnum_Reset) == 
                     ButtonStatus_ButtonPressed) {
-                // Reload program
-                TimerManager_SetTime(timer, 0, 0);
+                // Stop the timer and Reload the program
+                TimerManager_Pause(timer);
+                ProgramManager_LoadProgram(program, timer, display);
             }
-
-            ProgramManager_SetBypassSwitchState(program, 
-                ButtonManager_ButtonStatus(buttons, ButtonEnum_Bypass) == 
-                ButtonStatus_ButtonPressed);
-            
-            ProgramStatus status = ProgramManager_SetProgramSwitchState(program,
-                ButtonManager_GetProgramCode(buttons));
         }
-    } while (0);
-    
-    // Freeing the memory to be tidy, yes the proc gets a halt after return.
-    free(program);
-    free(timer);
-    free(buttons);
-    free(display);
+
+        // Bypass switch is once the switch is in the on position
+        ProgramManager_SetBypassSwitchState(program, 
+            ButtonManager_ButtonStatus(buttons, ButtonEnum_Bypass) == 
+            ButtonStatus_ButtonPressed);
+
+        ProgramManager_SetProgramSwitchState(program, timer, display,
+            ButtonManager_GetProgramCode(buttons));
+    }
+
     _Exit(0);
-    return;
 }

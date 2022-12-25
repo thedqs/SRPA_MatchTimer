@@ -1,6 +1,6 @@
 /*
- * File:   gui.c
- * Author: thedq
+ * File:   buttons.c
+ * Author: David Springgay
  *
  * Created on January 15, 2022, 12:38 PM
  */
@@ -19,13 +19,12 @@
 
 #define BUTTON_PRESSED(state, btn) ((state >> btn) & 0x1)
 
-ButtonManagerState * CreateButtonManager(){
-    ButtonManagerState * state = (ButtonManagerState*)malloc(sizeof(ButtonManagerState));
-    if (state != NULL) {
-        state->buttons_state = 0;
-        state->ticks_since_button_change = 0;
-    }
-    return state;
+void InitializeButtonManager(ButtonManagerState * state){
+    state->buttons_state = 0;
+    state->bypass_state = 0;
+    state->ticks_since_bypass_change = 0;
+    state->ticks_since_button_change = 0;
+    state->ticks_since_previous_click = 0;
 }
 
 void ButtonManager_ReadButtons(ButtonManagerState * state, unsigned char portA, 
@@ -38,18 +37,32 @@ void ButtonManager_ReadButtons(ButtonManagerState * state, unsigned char portA,
     button_value |= (((unsigned int)portA >> 4) & 0x3) << 7;
     button_value |= (((unsigned int)portC >> 2) & 0x3) << 9;
     
+    if (state->bypass_state != BUTTON_PRESSED(button_value, BYPASS)) {
+        state->ticks_since_bypass_change = 0;
+        state->bypass_state = BUTTON_PRESSED(button_value, BYPASS);
+    }
+    else {
+        state->ticks_since_bypass_change += 1;
+    }        
+    
     if (state->buttons_state == button_value) {
         state->ticks_since_button_change += 1;
     }
     else {
         state->buttons_state = button_value;
         state->ticks_since_button_change = 0;
+        state->ticks_since_previous_click = 0;
     }
 }
 
 ButtonStatus ButtonManager_ButtonStatus(ButtonManagerState * state, 
         ButtonEnum button){
-    if (state->ticks_since_button_change < 500) {
+    // Special case for bypass switch to ignore any other button presses
+    if (button == ButtonEnum_Bypass && state->ticks_since_bypass_change > 500) {
+        return state->bypass_state ? ButtonStatus_ButtonPressed : 
+            ButtonStatus_ButtonNotPressed;
+    }
+    else if (state->ticks_since_button_change < 500) {
         return ButtonStatus_ButtonNotPressed;
     }
     else {
@@ -83,4 +96,39 @@ ButtonStatus ButtonManager_ButtonStatus(ButtonManagerState * state,
 
 unsigned char ButtonManager_GetProgramCode(ButtonManagerState * state) {
     return (unsigned char)(state->buttons_state & 0xF);
+}
+
+unsigned char ButtonManager_ShouldProcessButtonClick(
+    ButtonManagerState * state) {
+    unsigned char should_click = 0;
+    state->ticks_since_previous_click += 1;
+    if (state->ticks_since_button_change >= 40000) {
+        if (state->ticks_since_previous_click > 1000) {
+            should_click = 1;
+            state->ticks_since_previous_click = 0;
+        }
+    }
+    else if (state->ticks_since_button_change >= 20000) {
+        if (state->ticks_since_previous_click > 2000) {
+            should_click = 1;
+            state->ticks_since_previous_click = 0;
+        }
+    }
+    else if (state->ticks_since_button_change >= 10000) {
+        if (state->ticks_since_previous_click > 3000) {
+            should_click = 1;
+            state->ticks_since_previous_click = 0;
+        }
+    }
+    else if (state->ticks_since_button_change >= 5000) {
+        if (state->ticks_since_previous_click > 4000) {
+            should_click = 1;
+            state->ticks_since_previous_click = 0;
+        }
+    }
+    else if (state->ticks_since_button_change == 500) {
+        should_click = 1;
+    }
+
+    return should_click;
 }
