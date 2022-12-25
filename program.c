@@ -85,9 +85,18 @@ void ProgramManager_LoadProgram(ProgramManagerState * state,
     }
     else if (status == ReadProgramStatus_NoProgram) {
         TimerManager_SetTime(timer, 0, 0);
-        memcpy(active_program.Name, "Manual", 7);
-        active_program.CountOfStages = 1;
-        memcpy(active_program_stages[0].Name, "Fire", 5);
+        if (state->ProgramNumber == 0xE)
+        {
+            memcpy(active_program.Name, "Configuration", 13);
+            active_program.CountOfStages = 0;
+            active_program_stages[0].Name[0] = '\0';
+        }
+        else
+        {
+            memcpy(active_program.Name, "Manual", 7);
+            active_program.CountOfStages = 1;
+            memcpy(active_program_stages[0].Name, "Fire", 5);
+        }
         active_program_stages[0].Duration.Minutes = 0;
         active_program_stages[0].Duration.Seconds = 0;
         active_program_stages[0].OnStart = ActivateTarget;

@@ -4,18 +4,15 @@
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/buttons.h</file>
-            <file>file:/C:/Program%20Files/Microchip/xc8/v2.35/pic/sources/c99/common/memset.c</file>
-            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/nbproject/Makefile-default.mk</file>
-            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/memory.c</file>
-            <file>file:/C:/Program%20Files/Microchip/xc8/v2.35/pic/sources/c99/common/memcpy.c</file>
-            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/timemgr.c</file>
-            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/timemgr.h</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/ui.h</file>
+            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/nbproject/Makefile-default.mk</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/program.h</file>
-            <file>file:/C:/Program%20Files/Microchip/xc8/v2.35/pic/sources/c99/common/strlen.c</file>
+            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/memory.c</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/program.c</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/ui.c</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/main.c</file>
+            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/timemgr.c</file>
+            <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/timemgr.h</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/buttons.c</file>
             <file>file:/D:/Users/David/Source/Repos/SRPA_MatchTimer/memory.h</file>
         </group>

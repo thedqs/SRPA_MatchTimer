@@ -57,9 +57,9 @@ static const unsigned char s_LEDCodes[] = {
 //  `           a           b           c           d           e
     0b10000000, 0b01110111, 0b01111100, 0b01011000, 0b01011110, 0b01111001,
 //  f           g           h           i           j           k
-    0b01110001, 0b00111101, 0b01110100, 0b00110000, 0b00011110, 0b01110110,
+    0b01110001, 0b00111101, 0b01110100, 0b00010000, 0b00011110, 0b01110110,
 //  l           m           n           o           p           q
-    0b00111000, 0b10000000, 0b01010100, 0b01011100, 0b01110011, 0b01100111,
+    0b00111000, 0b01010100, 0b01010100, 0b01011100, 0b01110011, 0b01100111,
 //  r           s           t           u           v           w
     0b01010000, 0b01101101, 0b01110000, 0b00011100, 0b01110010, 0b10000000,
 //  x           y           z           {           |           }
@@ -116,10 +116,10 @@ void UiUpdate(UiState * ui, TimerManagerState * timer,
         // Displaying a message when our message buffer has something
         memset(ui->LEDsDisplaying, 0, sizeof(ui->LEDsDisplaying));
         unsigned char characters_copied = 0;
-        while (ui->MessagePointer <= ui->MessageEndPointer && 
+        while (ui->MessagePointer < ui->MessageEndPointer && 
                 characters_copied < 4) {
             if (ui->MessagePointer + characters_copied >= 
-                    ui->MessageEndPointer) {
+                    ui->MessageEndPointer - 1) {
                 ui->LEDsDisplaying[characters_copied] = '\0';
             }
             else {
