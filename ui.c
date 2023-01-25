@@ -112,7 +112,7 @@ void UiUpdate(UiState * ui, TimerManagerState * timer,
         (ui->MessagePointer <= ui->MessageEndPointer);
     // 8-seg LED display control
     ui->update_count++;
-    if (ui->update_count >= 0x100 && displaying_message) {
+    if (ui->update_count >= 0x300 && displaying_message) {
         // Displaying a message when our message buffer has something
         memset(ui->LEDsDisplaying, 0, sizeof(ui->LEDsDisplaying));
         unsigned char characters_copied = 0;
@@ -154,7 +154,6 @@ void UiUpdate(UiState * ui, TimerManagerState * timer,
         ui->LEDsDisplaying[3] = '0' + seconds_ones;
     }
 
-    
     // See which LED we are going to be controlling
     unsigned char nextLED = (ui->CurrentLED + 1) % 4;
     // Read the current screen buffer

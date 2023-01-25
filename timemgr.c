@@ -23,9 +23,16 @@ TimerStatus TimerManager_TickSecond(TimerManagerState * state){
     else if (state->_State == TimerState_Running) {
         signed char seconds = ((signed char)state->_CurrentTime.Second) - 1;
         signed char minutes = (signed char)state->_CurrentTime.Minute;
-        if (seconds < 0) {
+        if (seconds == 0 && minutes == 0) {
+            state->_CurrentTime.Second = 0;
+            state->_CurrentTime.Minute = 0;
+            state->_State = TimerState_Paused;
+            return TimerStatus_TimerCompleted;
+        }
+        else if (seconds < 0) {
             minutes--;
             if (minutes < 0) {
+                // Should never hit, but just in case
                 state->_CurrentTime.Second = 0;
                 state->_CurrentTime.Minute = 0;
                 state->_State = TimerState_Paused;
